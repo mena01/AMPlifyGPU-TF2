@@ -84,18 +84,45 @@ def load_multi_model(model_dir_list, architecture):
     return model_list
 
 
-def ensemble(model_list, X, verbose=0):
+def ensemble(model_list, X, verbose=0, batch_size=256):
     """
-    Ensemble the list of models with processed input X
-    Return results for ensemble and individual models
+    Ensemble prediction using true manual GPU batching.
+
+    Only batch_size sequences are transferred to the GPU at a time,
+    avoiding creation of the complete input tensor on GPU.
     """
     indv_pred = []
-    for i in range(len(model_list)):
-        pred = model_list[i].predict(X, verbose=verbose).flatten()
-        indv_pred.append(pred)
-    ens_pred = np.mean(np.array(indv_pred), axis=0)
-    return ens_pred, np.array(indv_pred)
 
+    n = len(X)
+
+    for model_idx, model in enumerate(model_list):
+        if verbose:
+            print(f"Predicting model {model_idx + 1}/{len(model_list)}...")
+
+        model_predictions = []
+
+        for start in range(0, n, batch_size):
+            end = min(start + batch_size, n)
+
+            X_batch = X[start:end]
+
+            pred_batch = model(
+                X_batch,
+                training=False
+            ).numpy().reshape(-1)
+
+            model_predictions.append(pred_batch)
+
+            if verbose and (start == 0 or end == n or end % 50000 == 0):
+                print(f"  {end:,}/{n:,}")
+
+        pred = np.concatenate(model_predictions)
+        indv_pred.append(pred)
+
+    indv_pred = np.array(indv_pred)
+    ens_pred = np.mean(indv_pred, axis=0)
+
+    return ens_pred, indv_pred
 
 def get_attention_scores(indv_pred_list, attention_model_list, seq_list, X):
     """
@@ -163,8 +190,8 @@ def main():
     args = parser.parse_args()
 
     # Get paths - use absolute paths from AMPlify_TF2_clean directory
-    base_dir = '/home/labpc17c/AMPlify_TF2_clean/src/amplify_tf2'
-    model_dir = os.path.join(base_dir, 'models', args.model)
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    model_dir = os.path.join(os.path.dirname(base_dir), 'amplify_original', 'models', args.model)
     models = [os.path.join(model_dir, 'AMPlify_' + args.model + '_model_weights_' + str(i + 1) + '.h5')
               for i in range(5)]
 
