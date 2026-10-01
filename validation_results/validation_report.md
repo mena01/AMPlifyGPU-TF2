@@ -80,7 +80,7 @@ Running the same prediction twice produces **identical results**:
 
 ## Files Generated
 
-- `/tmp/ensemble_835_results.csv` - All 835 predictions with per-model probabilities
+- `validation_results/compare_tf1_tf2.csv` - Ensemble-level TF1 vs TF2 comparison for all 835 peptides
 - `/tmp/sampled_1000.csv` - Sampled test set
 
 ## Validation Command
