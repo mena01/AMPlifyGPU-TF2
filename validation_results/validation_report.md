@@ -1,56 +1,77 @@
-# AMPlify TF1 vs TF2 Validation
+## Validation Results
 
-The TensorFlow 2 implementation was validated against the original
-TensorFlow 1.12 / Keras 2.2.4 implementation using 835 peptides from
-the original AMPlify test dataset.
+### Validation Against Original AMPlify
 
-Both implementations were executed on CPU using the same pretrained
-balanced ensemble weights and identical input sequences.
+The TensorFlow 2 implementation was independently validated against the original **TensorFlow 1.12 / Keras 2.2.4** implementation using **835 peptides from the original AMPlify test dataset**.
 
-## Results
+The comparison used:
 
-- Sequences compared: 835
-- Sequence ID agreement: 835 / 835
-- Sequence agreement: 835 / 835
-- Classification agreement: 835 / 835 (100%)
-- Classification mismatches: 0
-- Ensemble probability MAE: 3.88 × 10^-8
-- Median absolute ensemble difference: 0
-- Maximum ensemble probability difference: 7.60 × 10^-7
-- All 835 ensemble predictions agreed within 1 × 10^-6
-- No retraining was performed
-- Original pretrained AMPlify weights were used
+- the same 835 peptide sequences;
+- the same original pretrained AMPlify model weights;
+- the same preprocessing pipeline;
+- the same five-model ensemble architecture;
+- the same classification threshold.
 
-## Sub-model agreement
+### TF1 CPU vs TF2 CPU
 
-Maximum absolute sub-model differences:
+The TensorFlow 2 CPU implementation reproduces the original TensorFlow 1 predictions to near machine precision.
 
-- Model 1: 2.43 × 10^-6
-- Model 2: 1.35 × 10^-6
-- Model 3: 1.76 × 10^-6
-- Model 4: 1.77 × 10^-6
-- Model 5: 2.13 × 10^-6
+| Metric | Result |
+|---|---:|
+| Number of peptides | 835 |
+| Mean absolute probability difference | 3.88 × 10⁻⁸ |
+| Median absolute probability difference | 0 |
+| Maximum absolute probability difference | 7.60 × 10⁻⁷ |
+| Predictions within 1 × 10⁻⁶ | 835 / 835 |
+| Classification agreement | **835 / 835 (100%)** |
+| Classification mismatches | **0** |
 
-## TensorFlow 2 compatibility
+These results demonstrate that the TensorFlow 2 CPU implementation is numerically equivalent to the original TensorFlow 1 AMPlify inference implementation for the validated dataset.
 
-The original AMPlify implementation uses legacy Keras 2.2.4 LSTM
-behavior.
+### GPU Validation
 
-To preserve compatibility with the original pretrained weights, the
-TensorFlow 2 implementation explicitly uses:
+The TensorFlow 2 implementation was also validated on an **NVIDIA GeForce RTX 3070 Ti** using TensorFlow 2.15.
 
-    recurrent_activation='hard_sigmoid'
+GPU inference produced the same AMP/non-AMP classifications as both the original TF1 implementation and the TF2 CPU implementation.
 
-Without this setting, modern TensorFlow/Keras uses a different LSTM
-recurrent activation default and produces different inference results.
+| Comparison | Mean Absolute Difference | Maximum Absolute Difference | Classification Agreement |
+|---|---:|---:|---:|
+| TF1 CPU vs TF2 CPU | 3.88 × 10⁻⁸ | 7.60 × 10⁻⁷ | **835 / 835 (100%)** |
+| TF1 CPU vs TF2 GPU | 8.51 × 10⁻⁶ | 2.94 × 10⁻⁴ | **835 / 835 (100%)** |
+| TF2 CPU vs TF2 GPU | 8.51 × 10⁻⁶ | 2.94 × 10⁻⁴ | **835 / 835 (100%)** |
 
-## Conclusion
+The small numerical differences observed during GPU execution are consistent with expected floating-point differences between CPU and GPU computation and did **not** change any classification in the 835-peptide validation set.
 
-The TensorFlow 2 implementation reproduces the original AMPlify
-inference results within floating-point tolerance while preserving the
-original pretrained weights and model architecture.
+Therefore, the GPU-enabled TensorFlow 2 implementation preserves the predictive behavior of the original AMPlify model while enabling inference on modern NVIDIA GPUs.
 
-Validation files:
+### Important Notes
 
-- final/TF1_CPU_reference.tsv
-- final/TF2_CPU_port.tsv
+- No AMPlify models were retrained.
+- The original pretrained weights are used directly.
+- The five AMPlify ensemble sub-models remain unchanged.
+- The TF2 port preserves the original model architecture, preprocessing, ensemble calculation, and prediction threshold.
+- GPU execution may produce very small floating-point differences compared with CPU execution.
+- In the validation dataset, these numerical differences resulted in **no classification changes**.
+
+### Validation Hardware and Software
+
+**Original implementation**
+
+- TensorFlow 1.12
+- Keras 2.2.4
+- CPU inference
+
+**TensorFlow 2 implementation**
+
+- TensorFlow 2.15
+- Keras 2.15
+- Python 3.10
+- NVIDIA GeForce RTX 3070 Ti
+- GPU compute capability 8.6
+
+The complete validation results are available in:
+
+```text
+validation_results/final/TF1_CPU_reference.tsv
+validation_results/final/TF2_CPU_port.tsv
+validation_results/final/TF2_GPU_port.tsv
