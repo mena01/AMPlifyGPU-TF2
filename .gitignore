@@ -8,3 +8,4 @@ venv/
 outputs/
 results/
 tmp/
+examples/test_run/
