@@ -2,7 +2,7 @@
 
 An unofficial TensorFlow 2 GPU-compatible inference port of the original [AMPlify](https://github.com/BirolLab/AMPlify) model.
 
-This project modernizes the original AMPlify inference implementation for TensorFlow 2.x and modern NVIDIA GPUs while preserving the original pretrained models and prediction workflow.
+This project modernizes the original AMPlify inference implementation for TensorFlow 2.x and modern NVIDIA GPUs while preserving the original pretrained models, architecture, preprocessing, and prediction workflow.
 
 **No retraining of the AMPlify models was performed.**
 
@@ -13,45 +13,62 @@ This project modernizes the original AMPlify inference implementation for Tensor
 
 ### Validation Against Original AMPlify
 
-The TensorFlow 2 implementation was compared directly with the original TensorFlow 1 implementation using **835 peptides from the original AMPlify test dataset**.
+The TensorFlow 2 implementation was independently validated against the original **TensorFlow 1.12 / Keras 2.2.4** implementation using **835 peptides from the original AMPlify test dataset**.
+
+Both implementations were executed on CPU using:
+
+- the same 835 peptide sequences;
+- the same original pretrained balanced ensemble weights;
+- the same preprocessing workflow;
+- the same model architecture;
+- no retraining.
 
 | Test | Result |
-|------|--------|
+|---|---:|
 | Peptides tested | 835 |
+| Sequence ID agreement | 835/835 |
+| Sequence agreement | 835/835 |
 | Classification agreement | 835/835 (100%) |
-| Ensemble probability MAE | 0.0 |
-| Maximum observed ensemble probability difference | 0.0 |
+| Classification mismatches | 0 |
+| Ensemble probability MAE | 3.88 × 10⁻⁸ |
+| Median absolute ensemble difference | 0 |
+| Maximum ensemble probability difference | 7.60 × 10⁻⁷ |
+| Ensemble predictions within 1 × 10⁻⁶ | 835/835 |
 | Retraining performed | No |
 
-These results demonstrate numerical agreement between the original TensorFlow 1 implementation and the TensorFlow 2 port on the tested AMPlify dataset and software/hardware environment.
+All five individual ensemble members also reproduced the original predictions closely.
+
+| Sub-model | Maximum absolute difference |
+|---|---:|
+| Model 1 | 2.43 × 10⁻⁶ |
+| Model 2 | 1.35 × 10⁻⁶ |
+| Model 3 | 1.76 × 10⁻⁶ |
+| Model 4 | 1.77 × 10⁻⁶ |
+| Model 5 | 2.13 × 10⁻⁶ |
+
+These results show that the TensorFlow 2 implementation reproduces the original AMPlify inference results within floating-point tolerance.
 
 Validation outputs are available in:
 
 ```text
-validation_results/
+validation_results/final/TF1_CPU_reference.tsv
+validation_results/final/TF2_CPU_port.tsv
+validation_results/validation_report.md
 ```
 
-### Example Output
+## Legacy LSTM Compatibility
 
-```text
-$ python AMPlify_tf2.py -s examples/sequences.fa -m balanced
+The original AMPlify model was developed using **Keras 2.2.4**.
 
-Loading balanced models...
-  Model 1: 100%
-  Model 2: 100%
-  Model 3: 100%
-  Model 4: 100%
-  Model 5: 100%
+The legacy Keras LSTM implementation uses:
 
-Predicting...
-Sequence ID: teAMP0001
-Sequence: QLPICGETCVLGGCYTPNCRCQYPICVR
-Length: 28
-Charge: 1
-Probability score: 0.99987632
-AMPlify_log_scaled_score: 31.6625
-Prediction: AMP
+```python
+recurrent_activation='hard_sigmoid'
 ```
+
+Modern TensorFlow/Keras uses a different default recurrent activation. Therefore, the TensorFlow 2 port explicitly sets `recurrent_activation='hard_sigmoid'` to preserve the behavior expected by the original pretrained AMPlify weights.
+
+This compatibility setting was essential for reproducing the original TensorFlow 1 predictions within floating-point tolerance.
 
 ## What This Port Changes
 
@@ -60,10 +77,12 @@ Compared with the original AMPlify implementation, this repository:
 - ports inference from TensorFlow 1.x / legacy Keras to TensorFlow 2.x;
 - enables inference on modern NVIDIA GPU environments;
 - preserves the original pretrained AMPlify weights;
+- preserves the original model architecture;
 - preserves the original preprocessing and prediction workflow;
+- explicitly preserves legacy LSTM behavior required by the pretrained weights;
 - does not retrain or redesign the AMPlify model;
 - provides direct TF1-vs-TF2 numerical validation;
-- supports efficient large-scale peptide screening.
+- supports batched inference for large-scale peptide screening.
 
 This repository does **not** introduce a new antimicrobial peptide prediction model. It is a modernization of the original AMPlify inference implementation.
 
@@ -90,59 +109,113 @@ Multi-Head Attention
       Output
 ```
 
-## Tested Environment
+## Repository Structure
 
-The TensorFlow 2 implementation has been tested on:
-
-- Python 3.10
-- TensorFlow 2.15
-- Keras 2.15
-- NVIDIA RTX 3070 Ti
-- CUDA 12.2
-- cuDNN 8.9.7
-- Linux
-
-## GPU Requirements
-
-A CUDA-compatible NVIDIA GPU is recommended for GPU inference.
-
-The validated environment used:
-
-- NVIDIA RTX 3070 Ti
-- CUDA 12.2
-- cuDNN 8.9.7
-- TensorFlow 2.15
-
-GPU compatibility may depend on the installed TensorFlow, CUDA, NVIDIA driver, and cuDNN versions.
+```text
+AMPlifyGPU-TF2/
+├── examples/
+├── src/
+│   ├── amplify_original/
+│   │   ├── AMPlify.py
+│   │   ├── layers.py
+│   │   └── models/
+│   └── amplify_tf2/
+│       ├── AMPlify_tf2.py
+│       └── layers.py
+├── validation_results/
+│   ├── final/
+│   │   ├── TF1_CPU_reference.tsv
+│   │   └── TF2_CPU_port.tsv
+│   └── validation_report.md
+├── requirements.txt
+├── LICENSE
+└── README.md
+```
 
 ## Installation
 
-Create a Conda environment:
+A Python 3.10 environment is recommended for the TensorFlow 2 implementation.
 
 ```bash
 conda create -n amplify_tf2_gpu python=3.10
 conda activate amplify_tf2_gpu
 ```
 
-Upgrade pip:
+Install the required packages:
 
 ```bash
-python -m pip install --upgrade pip
+pip install -r requirements.txt
 ```
 
-Install TensorFlow and Keras:
+The tested TensorFlow/Keras versions are:
+
+```text
+TensorFlow 2.15.0
+Keras 2.15.0
+```
+
+## Running AMPlifyGPU-TF2
+
+Example:
 
 ```bash
-pip install tensorflow==2.15.0 keras==2.15.0
+python src/amplify_tf2/AMPlify_tf2.py \
+  -s examples/sequences.fa \
+  -m balanced \
+  -od examples/test_run \
+  -of tsv \
+  -sub on \
+  -v
 ```
 
-Verify GPU detection:
+### Main Options
+
+```text
+-s       Input FASTA file
+-m       Model type: balanced or imbalanced
+-od      Output directory
+-of      Output format: txt or tsv
+-sub     Output individual sub-model predictions: on/off
+-att     Output attention scores: on/off
+-v       Verbose output
+```
+
+## GPU Usage
+
+When a supported NVIDIA GPU is available, TensorFlow 2 can use it automatically.
+
+Check GPU detection with:
 
 ```bash
 python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
 ```
 
-If the GPU environment is configured correctly, an NVIDIA GPU device should appear in the returned list.
+For CPU-only execution:
+
+```bash
+CUDA_VISIBLE_DEVICES="" python src/amplify_tf2/AMPlify_tf2.py \
+  -s examples/sequences.fa \
+  -m balanced \
+  -od examples/test_run \
+  -of tsv \
+  -sub on \
+  -v
+```
+
+## Tested GPU Environment
+
+The TensorFlow 2 implementation has been tested with:
+
+- Python 3.10
+- TensorFlow 2.15
+- Keras 2.15
+- NVIDIA GeForce RTX 3070 Ti
+- NVIDIA driver 535.309.01
+- CUDA 12.2
+- cuDNN 8.9.7
+- Linux
+
+GPU compatibility may depend on the installed TensorFlow, NVIDIA driver, CUDA, and cuDNN versions.
 
 ## Original AMPlify
 
@@ -166,7 +239,7 @@ https://github.com/BirolLab/AMPlify
 
 AMPlify was originally developed by **Chenkai Li and collaborators in the Birol Lab**.
 
-This repository contains a TensorFlow 2 / GPU-compatible port developed by **Mena Khalaf**.
+This repository contains a TensorFlow 2 / GPU-compatible inference port developed by **Mena Khalaf**.
 
 The purpose of this project is to improve compatibility with modern TensorFlow and NVIDIA GPU environments while preserving the original AMPlify model and prediction behavior.
 
