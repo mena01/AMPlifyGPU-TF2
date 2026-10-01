@@ -2,7 +2,7 @@
 
 ### Validation Against Original AMPlify
 
-The TensorFlow 2 implementation was independently validated against the original **TensorFlow 1.12 / Keras 2.2.4** implementation using **835 peptides from the original AMPlify test dataset**.
+The TensorFlow 2 implementation was independently validated against the original **TensorFlow 1.12 implementation using **835 peptides from the original AMPlify test dataset**.
 
 The comparison used:
 
