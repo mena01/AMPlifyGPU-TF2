@@ -1,8 +1,10 @@
 # AMPlifyGPU-TF2
 
-An unofficial TensorFlow 2 GPU-compatible inference port of the original [AMPlify](https://github.com/BirolLab/AMPlify) model.
+An unofficial TensorFlow 2 and GPU-compatible inference port of the original [AMPlify](https://github.com/BirolLab/AMPlify) model.
 
-This project modernizes the original AMPlify inference implementation for TensorFlow 2.x and modern NVIDIA GPUs while preserving the original pretrained models, architecture, preprocessing, and prediction workflow.
+This project modernizes the original AMPlify inference implementation for TensorFlow 2.x and modern NVIDIA GPUs while preserving the original pretrained models, architecture, preprocessing, ensemble strategy, and prediction workflow.
+
+AMPlifyGPU-TF2 supports **GPU-accelerated and batched inference**, making it suitable for faster large-scale antimicrobial peptide screening compared with the original CPU-oriented workflow.
 
 **No retraining of the AMPlify models was performed.**
 
@@ -45,25 +47,33 @@ All five individual ensemble members also reproduced the original predictions cl
 | Model 3 | 1.76 × 10⁻⁶ |
 | Model 4 | 1.77 × 10⁻⁶ |
 | Model 5 | 2.13 × 10⁻⁶ |
+### GPU Validation
 
-These results show that the TensorFlow 2 implementation reproduces the original AMPlify inference results within floating-point tolerance.
+The TensorFlow 2 implementation was also validated using an **NVIDIA GeForce RTX 3070 Ti**.
+
+The same 835-peptide validation dataset was evaluated using GPU inference and compared with both the original TensorFlow 1 CPU implementation and the TensorFlow 2 CPU implementation.
+
+| Comparison | Mean absolute difference | Maximum absolute difference | Classification agreement |
+|---|---:|---:|---:|
+| TF1 CPU vs TF2 CPU | 3.88 × 10⁻⁸ | 7.60 × 10⁻⁷ | **835/835 (100%)** |
+| TF1 CPU vs TF2 GPU | 8.51 × 10⁻⁶ | 2.94 × 10⁻⁴ | **835/835 (100%)** |
+| TF2 CPU vs TF2 GPU | 8.51 × 10⁻⁶ | 2.94 × 10⁻⁴ | **835/835 (100%)** |
+
+GPU execution therefore preserved **100% of the AMP/non-AMP classifications** produced by the original AMPlify implementation on the validation dataset.
+
+The very small numerical differences between CPU and GPU probability scores are consistent with expected floating-point differences between hardware execution backends and did not alter any classification.
+
+The GPU-enabled implementation also supports batched inference, allowing substantially larger peptide datasets to be processed efficiently on modern NVIDIA GPUs.
+These results show that the TensorFlow 2 implementation reproduces the original AMPlify inference results within floating-point tolerance on CPU, while GPU execution ** preserves the same AMP/non-AMP classifications ** with only minor numerical differences in probability scores.
+
 
 Validation outputs are available in:
 
 ```text
 validation_results/final/TF1_CPU_reference.tsv
 validation_results/final/TF2_CPU_port.tsv
+validation_results/final/TF2_GPU_port.tsv
 validation_results/validation_report.md
-```
-
-## Legacy LSTM Compatibility
-
-The original AMPlify model was developed using **Keras 2.2.4**.
-
-The legacy Keras LSTM implementation uses:
-
-```python
-recurrent_activation='hard_sigmoid'
 ```
 
 Modern TensorFlow/Keras uses a different default recurrent activation. Therefore, the TensorFlow 2 port explicitly sets `recurrent_activation='hard_sigmoid'` to preserve the behavior expected by the original pretrained AMPlify weights.
@@ -75,14 +85,14 @@ This compatibility setting was essential for reproducing the original TensorFlow
 Compared with the original AMPlify implementation, this repository:
 
 - ports inference from TensorFlow 1.x / legacy Keras to TensorFlow 2.x;
-- enables inference on modern NVIDIA GPU environments;
+- enables GPU-accelerated inference on modern NVIDIA GPUs;
+- supports batched inference for faster large-scale peptide screening;
 - preserves the original pretrained AMPlify weights;
 - preserves the original model architecture;
 - preserves the original preprocessing and prediction workflow;
 - explicitly preserves legacy LSTM behavior required by the pretrained weights;
 - does not retrain or redesign the AMPlify model;
 - provides direct TF1-vs-TF2 numerical validation;
-- supports batched inference for large-scale peptide screening.
 
 This repository does **not** introduce a new antimicrobial peptide prediction model. It is a modernization of the original AMPlify inference implementation.
 
@@ -125,7 +135,8 @@ AMPlifyGPU-TF2/
 ├── validation_results/
 │   ├── final/
 │   │   ├── TF1_CPU_reference.tsv
-│   │   └── TF2_CPU_port.tsv
+│   │   ├── TF2_CPU_port.tsv
+│   │   └── TF2_GPU_port.tsv
 │   └── validation_report.md
 ├── requirements.txt
 ├── LICENSE
