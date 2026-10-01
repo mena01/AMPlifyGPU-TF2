@@ -138,7 +138,6 @@ Multi-Head Attention
 
 ```text
 AMPlifyGPU-TF2/
-├── examples/
 ├── src/
 │   ├── amplify_original/
 │   │   ├── AMPlify.py
