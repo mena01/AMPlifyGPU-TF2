@@ -6,18 +6,19 @@
 
 ## Validation Summary
 
-| Metric | Result |
-|--------|--------|
-| Total peptides tested | 835 |
-| Model consistency (5 ensemble members) | 100% identical |
-| Numerical precision (all ops) | < 1e-6 (machine precision) |
-| Reproducibility (multiple runs) | 100% identical |
-| Classification agreement | 100% |
+The TensorFlow 2 implementation was compared directly with the original TensorFlow 1 implementation using 835 peptides from the original AMPlify test dataset.
+
+- Classification agreement: 835/835 (100%)
+- Ensemble probability MAE: 0.0
+- Maximum observed ensemble probability difference: 0.0
+- No retraining was performed
+- Original pretrained AMPlify weights were used
+
+These results demonstrate numerical agreement between the original TensorFlow 1 implementation and the TensorFlow 2 port on the tested dataset and environment.
 
 ## Test Results
 
 ### Ensemble Model Consistency
-All 5 ensemble models produce **identical predictions**:
 
 ```
 Model 1: mean=0.877423, min=0.000000, max=1.000000
