@@ -47,7 +47,7 @@ def build_amplify():
     """
     inputs = Input(shape=(MAX_LEN, 20), name='Input')
     masking = Masking(mask_value=0.0, input_shape=(MAX_LEN, 20), name='Masking')(inputs)
-    hidden = Bidirectional(LSTM(512, use_bias=True, dropout=0.5, return_sequences=True), name='Bidirectional-LSTM')(masking)
+    hidden = Bidirectional(LSTM(512, use_bias=True, dropout=0.5, return_sequences=True, recurrent_activation='hard_sigmoid'), name='Bidirectional-LSTM')(masking)
     hidden = MultiHeadAttention(head_num=32, activation='relu', use_bias=True,
                                 return_multi_attention=False, name='Multi-Head-Attention')(hidden)
     hidden = Dropout(0.2, name='Dropout_1')(hidden)
@@ -63,7 +63,7 @@ def build_attention():
     """
     inputs = Input(shape=(MAX_LEN, 20), name='Input')
     masking = Masking(mask_value=0.0, input_shape=(MAX_LEN, 20), name='Masking')(inputs)
-    hidden = Bidirectional(LSTM(512, use_bias=True, dropout=0.5, return_sequences=True), name='Bidirectional-LSTM')(masking)
+    hidden = Bidirectional(LSTM(512, use_bias=True, dropout=0.5, return_sequences=True, recurrent_activation='hard_sigmoid'), name='Bidirectional-LSTM')(masking)
     hidden = MultiHeadAttention(head_num=32, activation='relu', use_bias=True,
                                 return_multi_attention=False, name='Multi-Head-Attention')(hidden)
     hidden = Dropout(0.2, name='Dropout_1')(hidden)
