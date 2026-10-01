@@ -4,12 +4,28 @@ An unofficial TensorFlow 2 and GPU-compatible inference port of the original [AM
 
 This project modernizes the original AMPlify inference implementation for TensorFlow 2.x and modern NVIDIA GPUs while preserving the original pretrained models, architecture, preprocessing, ensemble strategy, and prediction workflow.
 
-AMPlifyGPU-TF2 supports **GPU-accelerated and batched inference**, making it suitable for faster large-scale antimicrobial peptide screening compared with the original CPU-oriented workflow.
+AMPlifyGPU-TF2 supports **GPU-accelerated and batched inference**, for large-scale peptide screening. In practical large-scale runs, the GPU-enabled workflow processed approximately **35 million peptides in ~34 hours**, compared with a previous CPU workflow requiring approximately **160 hours for ~8 million peptides**, corresponding to an observed throughput improvement of about **20×**.
 
 **No retraining of the AMPlify models was performed.**
 
 - **Original AMPlify:** Chenkai Li and the Birol Lab
 - **TensorFlow 2 / GPU port:** Mena Khalaf
+## Large-Scale GPU Performance
+
+AMPlifyGPU-TF2 was also used for large-scale peptide screening.
+
+In a previous CPU-based workflow, processing approximately **8 million peptides** required about **160 hours**, despite using **64 CPU threads** and a high-memory system with approximately **500 GB RAM**.
+
+Using the TensorFlow 2 GPU-enabled implementation, approximately **35 million peptide sequences** were processed in about **34 hours**.
+
+| Workflow | Sequences | Runtime | Approx. throughput |
+|---|---:|---:|---:|
+| Previous CPU workflow | ~8 million | ~160 h | ~50,000 peptides/h |
+| AMPlifyGPU-TF2 GPU workflow | ~35 million | ~34 h | ~1.03 million peptides/h |
+
+This corresponds to an observed throughput increase of approximately **20×** for the large-scale workflow.
+
+The comparison reflects practical end-to-end runs rather than a controlled hardware-normalized benchmark, because the CPU and GPU workloads and computing environments were different.
 
 ## Validation Results
 
