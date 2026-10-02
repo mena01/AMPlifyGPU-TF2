@@ -12,6 +12,7 @@ import time
 from Bio import SeqIO
 import numpy as np
 import pandas as pd
+import tensorflow as tf
 from layers import Attention, MultiHeadAttention
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Masking, Dense, LSTM, Bidirectional, Input, Dropout
@@ -86,31 +87,34 @@ def load_multi_model(model_dir_list, architecture):
 
 def ensemble(model_list, X, verbose=0, batch_size=256):
     """
-    Ensemble prediction using true manual GPU batching.
+    Ensemble prediction using manual host-side batching and a compiled TF graph.
 
-    Only batch_size sequences are transferred to the GPU at a time,
-    avoiding creation of the complete input tensor on GPU.
+    The model architecture and weights are unchanged.  tf.function removes the
+    per-batch eager/Python execution overhead while keeping only one inference
+    batch on the GPU at a time.
     """
     indv_pred = []
-
     n = len(X)
+
+    input_spec = tf.TensorSpec(shape=(None, MAX_LEN, 20), dtype=tf.float32)
 
     for model_idx, model in enumerate(model_list):
         if verbose:
             print(f"Predicting model {model_idx + 1}/{len(model_list)}...")
 
+        # Compile once per ensemble member.  The None batch dimension prevents
+        # retracing for the final, shorter batch.  Do not enable XLA here: the
+        # goal is a conservative execution optimization, not a model change.
+        @tf.function(input_signature=[input_spec], reduce_retracing=True)
+        def infer_batch(x):
+            return model(x, training=False)
+
         model_predictions = []
 
         for start in range(0, n, batch_size):
             end = min(start + batch_size, n)
-
-            X_batch = X[start:end]
-
-            pred_batch = model(
-                X_batch,
-                training=False
-            ).numpy().reshape(-1)
-
+            X_batch = tf.convert_to_tensor(X[start:end], dtype=tf.float32)
+            pred_batch = infer_batch(X_batch).numpy().reshape(-1)
             model_predictions.append(pred_batch)
 
             if verbose and (start == 0 or end == n or end % 50000 == 0):
@@ -121,7 +125,6 @@ def ensemble(model_list, X, verbose=0, batch_size=256):
 
     indv_pred = np.array(indv_pred)
     ens_pred = np.mean(indv_pred, axis=0)
-
     return ens_pred, indv_pred
 
 def get_attention_scores(indv_pred_list, attention_model_list, seq_list, X):
@@ -186,6 +189,8 @@ def main():
                         help="Whether to output attention scores, on or off (off by default, optional)",
                         choices=['on', 'off'], default='off', required=False)
     parser.add_argument('-v', '--verbose', help="Verbose output (optional)", action='store_true')
+    parser.add_argument('-bs', '--batch_size', type=int, default=256,
+                        help="GPU inference batch size (default: 256)")
 
     args = parser.parse_args()
 
@@ -231,7 +236,7 @@ def main():
     if args.verbose:
         print('\nPredicting...')
     
-    y_score_valid, y_indv_list_valid = ensemble(out_model, X_seq_valid, verbose=0)
+    y_score_valid, y_indv_list_valid = ensemble(out_model, X_seq_valid, verbose=args.verbose, batch_size=args.batch_size)
     y_class_valid = proba_to_class_name(y_score_valid)
 
     # Initialize result arrays
@@ -247,9 +252,10 @@ def main():
         attention = []
 
     # Assemble full results
+    valid_ix_set = set(valid_ix)
     ix = 0
     for i in range(len(peptide)):
-        if i in valid_ix:
+        if i in valid_ix_set:
             y_score.append(str(round(y_score_valid[ix], 8)))
             if y_score_valid[ix] < 0.99999999:
                 y_log_score.append(str(round(-10 * np.log10(1 - y_score_valid[ix]), 4)))
@@ -276,22 +282,27 @@ def main():
             if args.attention == 'on':
                 attention.append('NA')
 
-    # Output results
+    # Build the human-readable text only when TXT output is requested.
+    # For large TSV runs, avoiding per-sequence printing/string concatenation
+    # removes substantial CPU and I/O overhead without changing predictions.
     out_txt = ''
-    for i in range(len(seq_id)):
-        temp_txt = 'Sequence ID: ' + seq_id[i] + '\n' + 'Sequence: ' + peptide[i] + '\n' \
-                   + 'Length: ' + str(y_length[i]) + '\n' + 'Charge: ' + str(y_charge[i]) + '\n'
-        if args.sub_model == 'on':
-            temp_txt = temp_txt + 'Sub-model probability scores: ' \
-                       + ', '.join([y_indv_list[n][i] for n in range(5)]) + '\n'
-        temp_txt = temp_txt + 'Probability score: ' + y_score[i] + '\n' \
-                   + 'AMPlify_log_scaled_score: ' + y_log_score[i] + '\n' + 'Prediction: ' \
-                   + y_class[i] + '\n'
-        if args.attention == 'on':
-            temp_txt = temp_txt + 'Attention: ' + str(attention[i]) + '\n'
-        temp_txt = temp_txt + '\n'
-        print(temp_txt)
-        out_txt = out_txt + temp_txt
+    if args.out_format == 'txt':
+        txt_parts = []
+        for i in range(len(seq_id)):
+            temp_txt = 'Sequence ID: ' + seq_id[i] + '\n' + 'Sequence: ' + peptide[i] + '\n' \
+                       + 'Length: ' + str(y_length[i]) + '\n' + 'Charge: ' + str(y_charge[i]) + '\n'
+            if args.sub_model == 'on':
+                temp_txt += 'Sub-model probability scores: ' \
+                            + ', '.join([y_indv_list[n][i] for n in range(5)]) + '\n'
+            temp_txt += 'Probability score: ' + y_score[i] + '\n' \
+                        + 'AMPlify_log_scaled_score: ' + y_log_score[i] + '\n' \
+                        + 'Prediction: ' + y_class[i] + '\n'
+            if args.attention == 'on':
+                temp_txt += 'Attention: ' + str(attention[i]) + '\n'
+            txt_parts.append(temp_txt + '\n')
+        out_txt = ''.join(txt_parts)
+        if args.verbose:
+            print(out_txt)
 
     # Save results
     if args.out_format is not None:
